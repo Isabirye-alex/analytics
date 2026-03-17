@@ -25,7 +25,7 @@ class ReusableFunctions:
         if not logger.handlers:
             handler = logging.StreamHandler()
             formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
             )
             handler.setFormatter(formatter)
             logger.addHandler(handler)
@@ -34,7 +34,9 @@ class ReusableFunctions:
         return logger
 
     @staticmethod
-    def validate_schema(df: pd.DataFrame, required_columns: list, logger: logging.Logger) -> None:
+    def validate_schema(
+        df: pd.DataFrame, required_columns: list, logger: logging.Logger
+    ) -> None:
         """
         Validate required columns exist in dataframe.
 
@@ -56,10 +58,7 @@ class ReusableFunctions:
 
     @staticmethod
     def capture_null_rates(
-        df: pd.DataFrame,
-        quality_metrics: Dict,
-        stage: str,
-        logger: logging.Logger
+        df: pd.DataFrame, quality_metrics: Dict, stage: str, logger: logging.Logger
     ) -> None:
         """
         Capture null rates for dataframe.
@@ -72,10 +71,10 @@ class ReusableFunctions:
         """
         null_rates = df.isna().mean().round(4).to_dict()
 
-        if stage == 'before':
-            quality_metrics['null_rates_before'] = null_rates
-        elif stage == 'after':
-            quality_metrics['null_rates_after'] = null_rates
+        if stage == "before":
+            quality_metrics["null_rates_before"] = null_rates
+        elif stage == "after":
+            quality_metrics["null_rates_after"] = null_rates
         else:
             raise ValueError("Stage must be 'before' or 'after'")
 

@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any
 import pandas as pd
-from reusables.logger import ReusableFunctions
+from reusables.reusable_functions import ReusableFunctions
 
 
 class DataCleaner:
@@ -28,17 +28,17 @@ class DataCleaner:
     """
 
     REQUIRED_COLUMNS = [
-        'Date',
-        'ProductNo',
-        'TransactionNo',
-        'ProductName',
-        'Price',
-        'Quantity',
-        'CustomerNo',
-        'Country'
+        "Date",
+        "ProductNo",
+        "TransactionNo",
+        "ProductName",
+        "Price",
+        "Quantity",
+        "CustomerNo",
+        "Country",
     ]
 
-    def __init__(self, dataframe: pd.DataFrame):
+    def __init__(self, dataframe):
         """
         Initialize the DataCleaner with a dataset.
 
@@ -58,9 +58,9 @@ class DataCleaner:
         # Initialize data quality tracking structure
         self.quality_metrics: Dict[str, Any] = {
             "initial_row_count": len(self.df),  # Total rows before cleaning
-            "rows_dropped": {},                # Tracks rows removed at each step
-            "null_rates_before": {},           # Missing value ratios before cleaning
-            "null_rates_after": {}             # Missing value ratios after cleaning
+            "rows_dropped": {},  # Tracks rows removed at each step
+            "null_rates_before": {},  # Missing value ratios before cleaning
+            "null_rates_after": {},  # Missing value ratios after cleaning
         }
 
     def _clean_dates(self) -> None:
@@ -80,7 +80,7 @@ class DataCleaner:
         self.df["Date"] = pd.to_datetime(
             self.df["Date"],
             format="%m/%d/%Y",
-            errors="coerce"  # Invalid parsing results in NaT
+            errors="coerce",  # Invalid parsing results in NaT
         )
 
     def _clean_customer_no(self) -> None:
@@ -102,10 +102,7 @@ class DataCleaner:
         before = len(self.df)
 
         # Convert to numeric; invalid values become NaN
-        self.df["CustomerNo"] = pd.to_numeric(
-            self.df["CustomerNo"],
-            errors="coerce"
-        )
+        self.df["CustomerNo"] = pd.to_numeric(self.df["CustomerNo"], errors="coerce")
 
         # Drop rows with missing customer IDs
         self.df.dropna(subset=["CustomerNo"], inplace=True)
@@ -134,11 +131,7 @@ class DataCleaner:
 
         self.logger.info("Cleaning 'Country' column")
 
-        self.df["Country"] = (
-            self.df["Country"]
-            .str.strip()
-            .str.title()
-        )
+        self.df["Country"] = self.df["Country"].str.strip().str.title()
 
     def _clean_product_name(self) -> None:
         """
@@ -160,9 +153,7 @@ class DataCleaner:
         before = len(self.df)
 
         # Remove rows with overly simplistic product names
-        self.df = self.df[
-            ~self.df["ProductName"].str.match(r"^[A-Za-z]+$", na=False)
-        ]
+        self.df = self.df[~self.df["ProductName"].str.match(r"^[A-Za-z]+$", na=False)]
 
         dropped = before - len(self.df)
 
@@ -220,9 +211,7 @@ class DataCleaner:
 
         # Step 1: Validate dataset schema
         ReusableFunctions.validate_schema(
-            df=self.df,
-            required_columns=self.REQUIRED_COLUMNS,
-            logger=self.logger
+            df=self.df, required_columns=self.REQUIRED_COLUMNS, logger=self.logger
         )
 
         # Step 2: Capture null distribution before cleaning
@@ -230,7 +219,7 @@ class DataCleaner:
             df=self.df,
             quality_metrics=self.quality_metrics,
             stage="before",
-            logger=self.logger
+            logger=self.logger,
         )
 
         # Step 3: Execute cleaning steps
@@ -247,12 +236,12 @@ class DataCleaner:
             df=self.df,
             quality_metrics=self.quality_metrics,
             stage="after",
-            logger=self.logger
+            logger=self.logger,
         )
 
         self.logger.info("Data cleaning pipeline completed successfully")
 
         return {
             "cleaned_dataset": self.df,
-            "data_quality_metrics": self.quality_metrics
+            "data_quality_metrics": self.quality_metrics,
         }
