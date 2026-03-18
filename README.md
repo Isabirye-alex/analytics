@@ -96,3 +96,12 @@ Real-time data pipeline integration
 
 API deployment for analytics serving
 
+# Author
+
+Built as part of a data science and software engineering pipeline project, combining:
+
+Data Engineering principles
+
+Analytics modeling
+
+Clean architecture design
