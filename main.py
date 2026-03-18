@@ -5,43 +5,73 @@ from features import FeatureEngineering
 from pipeline.analytics.customer_behavior import CustomerBehavior
 from pipeline.analytics.visualization_class import DataVisualization
 
-file_path = "sales.csv"
-# string = 'http://string.com'
-dataframe = DataInjestor(file_path).fetch_data_from_csv()
-cleaned_dataframe = DataCleaner(dataframe).run_pipeline()
-feature_engineered_dataframe = FeatureEngineering(
-    cleaned_dataframe["cleaned_dataset"]
-).run_pipeline()
-rfm_table = CustomerBehavior(feature_engineered_dataframe).build_rfm()
-cohort_table = CustomerBehavior(feature_engineered_dataframe).build_cohort()
-pareto = CustomerBehavior(feature_engineered_dataframe).build_pareto()
-pareto_curve = DataVisualization().plot_pareto(pareto)
-retention_heatmap = DataVisualization().plot_retention(cohort_table)
-clv_table = CustomerBehavior(feature_engineered_dataframe).build_clv()
-print(cleaned_dataframe["cleaned_dataset"].info())
-print(
-    "----------------------------------------------------------------------------------------------------------------------------------"
-)
-print(cleaned_dataframe["cleaned_dataset"].head())
-print(
-    "----------------------------------------------------------------------------------------------------------------------------------"
-)
-print(cleaned_dataframe["data_quality_metrics"])
-print(
-    "----------------------------------------------------------------------------------------------------------------------------------"
-)
-print(feature_engineered_dataframe.head())
-print(cleaned_dataframe["cleaned_dataset"].info())
-print(rfm_table)
-print(
-    "----------------------------------------------------------------------------------------------------------------------------------"
-)
-print(pareto)
-print(
-    ".............................................................................................."
-)
-print(clv_table.head(10))
-print(
-    "....................................................................................."
-)
-print(cohort_table)
+
+def main():
+    file_path = "sales.csv"
+
+     
+    # 1. Data Ingestion
+     
+    df = DataInjestor(file_path).fetch_data_from_csv()
+
+     
+    # 2. Data Cleaning
+     
+    cleaning_output = DataCleaner(df).run_pipeline()
+    cleaned_df = cleaning_output["cleaned_dataset"]
+
+     
+    # 3. Feature Engineering
+    
+    fe_pipeline = FeatureEngineering(cleaned_df)
+    feature_df = fe_pipeline.run_pipeline()
+
+    # 4. Customer Behavior 
+    
+    cb_pipeline = CustomerBehavior(feature_df)
+    cb_results = cb_pipeline.run_pipeline()
+
+    rfm_table = cb_results["rfm"]
+    pareto = cb_results["pareto"]
+    cohort_table = cb_results["cohort"]
+    clv_table = cb_results["clv"]
+    metrics = cb_results['tracking_metrics']
+
+     
+    # 5. Visualization
+     
+    viz = DataVisualization()
+
+    pareto_curve = viz.plot_pareto(pareto)
+    retention_heatmap = viz.plot_retention(cohort_table)
+
+     
+    # 6. Debug / Inspection
+     
+    print("\n=== CLEANED DATA INFO ===")
+    print(cleaned_df.info())
+
+    print("\n=== FEATURE DATA SAMPLE ===")
+    print(feature_df.head())
+
+    print("\n=== DATA QUALITY METRICS ===")
+    print(cleaning_output["data_quality_metrics"])
+
+    print("\n=== RFM TABLE ===")
+    print(rfm_table.head())
+
+    print("\n=== PARETO ===")
+    print(pareto.head())
+
+    print("\n=== CLV ===")
+    print(clv_table.head())
+
+    print("\n=== COHORT ===")
+    print(cohort_table)
+
+    print("\n=== COHORT ===")
+    print(metrics)
+
+
+if __name__ == "__main__":
+    main()

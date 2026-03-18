@@ -1,6 +1,6 @@
 import pandas as pd
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List, Callable
 from reusables.reusable_functions import ReusableFunctions
 
 
@@ -20,7 +20,7 @@ class FeatureEngineering:
 
     REQUIRED_COLUMNS = ["TransactionNo", "Date", "Price", "Quantity", "CustomerNo"]
 
-    def __init__(self, dataframe):
+    def __init__(self, dataframe: pd.DataFrame):
         """
         Initialize the FeatureEngineering pipeline.
 
@@ -28,56 +28,49 @@ class FeatureEngineering:
             dataframe (pd.DataFrame): Cleaned dataset ready for feature generation.
         """
 
-        # Work on a copy to preserve original dataset integrity
         self.df = dataframe.copy()
 
         # Use reusable logger
         self.logger = ReusableFunctions.setup_logger(self.__class__.__name__)
 
-        # Initialize feature-level quality metrics
+        # Feature quality metrics
         self.feature_metrics: Dict[str, Any] = {
             "initial_row_count": len(self.df),
-            "rows_affected": {},  # Tracks rows impacted by transformations
+            "rows_affected": {},
             "null_rates_before": {},
             "null_rates_after": {},
         }
 
-    def validate_schema(self) -> None:
-        """
-        Validate that all required columns exist before feature engineering.
-
-        Raises:
-            ValueError: If any required column is missing.
-        """
-
-        missing_columns = [
-            col for col in self.REQUIRED_COLUMNS if col not in self.df.columns
+        self.pipeline_steps :List[Callable] = [
+            self._add_revenue_feature, 
+            self._add_cancellation_flag,
+            self._add_time_features,
+            self._add_cohort_index
         ]
 
-        if missing_columns:
-            self.logger.error(f"Missing required columns: {missing_columns}")
-            raise ValueError("Required columns missing")
+    def _validate_schema(self) -> None:
+        """
+        Validate required columns exist in the dataset.
+        """
+        ReusableFunctions.validate_schema(
+            df=self.df,
+            required_columns=self.REQUIRED_COLUMNS,
+            logger=self.logger,
+        )
 
-        self.logger.info("Schema validation passed")
-
-    def capture_null_rates(self, stage: str) -> None:
+    def _capture_null_rates(self, stage: str) -> None:
         """
         Capture null value distribution across all columns.
 
         Args:
-            stage (str): 'before' or 'after' feature engineering.
+            stage (str): 'before' or 'after'
         """
-
-        null_rates = self.df.isna().mean().round(4).to_dict()
-
-        if stage == "before":
-            self.feature_metrics["null_rates_before"] = null_rates
-        elif stage == "after":
-            self.feature_metrics["null_rates_after"] = null_rates
-        else:
-            raise ValueError("Stage must be 'before' or 'after'")
-
-        self.logger.info(f"Captured null rates ({stage})")
+        ReusableFunctions.capture_null_rates(
+            df=self.df,
+            quality_metrics=self.feature_metrics,
+            stage=stage,
+            logger=self.logger,
+        )
 
     def _add_revenue_feature(self) -> None:
         """
@@ -85,16 +78,8 @@ class FeatureEngineering:
 
         Formula:
             TotalRevenue = Quantity * Price
-
-        Purpose:
-            Enables revenue-based analytics such as:
-                - Customer value
-                - Sales trends
-                - Product performance
         """
-
         self.logger.info("Adding TotalRevenue feature")
-
         self.df["TotalRevenue"] = self.df["Quantity"] * self.df["Price"]
 
     def _add_cancellation_flag(self) -> None:
@@ -103,13 +88,7 @@ class FeatureEngineering:
 
         Logic:
             Transaction numbers starting with 'C' indicate cancellations.
-
-        Output:
-            Adds a boolean column 'CancelledInvoice'
-
-        Also logs total number of cancelled transactions.
         """
-
         self.logger.info("Adding CancelledInvoice feature")
 
         self.df["CancelledInvoice"] = (
@@ -128,20 +107,14 @@ class FeatureEngineering:
         """
         Generate time-based features from the Date column.
 
-        Features created:
-            - YearMonth: Period representing year and month of transaction
-            - CohortMonth: First purchase month for each customer
-
-        Purpose:
-            Enables time-series analysis and cohort tracking.
+        Features:
+            - YearMonth
+            - CohortMonth
         """
-
         self.logger.info("Adding time-based features")
 
-        # Convert to monthly period
         self.df["YearMonth"] = self.df["Date"].dt.to_period("M")
 
-        # First purchase month per customer (cohort)
         self.df["CohortMonth"] = self.df.groupby("CustomerNo", observed=False)[
             "YearMonth"
         ].transform("min")
@@ -150,18 +123,8 @@ class FeatureEngineering:
         """
         Compute CohortIndex for cohort analysis.
 
-        CohortIndex represents the number of months since a customer's
-        first transaction.
-
-        Formula:
-            CohortIndex = (Year difference * 12) + Month difference + 1
-
-        Example:
-            First purchase: Jan 2023
-            Current purchase: Mar 2023
-            CohortIndex = 3 months
+        CohortIndex = months since first purchase.
         """
-
         self.logger.info("Calculating CohortIndex")
 
         invoice_year = self.df["YearMonth"].dt.year
@@ -169,10 +132,9 @@ class FeatureEngineering:
         cohort_year = self.df["CohortMonth"].dt.year
         cohort_month = self.df["CohortMonth"].dt.month
 
-        years_diff = invoice_year - cohort_year
-        months_diff = invoice_month - cohort_month
-
-        self.df["CohortIndex"] = (years_diff * 12) + months_diff + 1
+        self.df["CohortIndex"] = (
+            (invoice_year - cohort_year) * 12 + (invoice_month - cohort_month) + 1
+        )
 
     def run_pipeline(self) -> pd.DataFrame:
         """
@@ -181,37 +143,27 @@ class FeatureEngineering:
         Steps:
             1. Validate schema
             2. Capture null rates (before)
-            3. Generate revenue feature
-            4. Detect cancelled invoices
-            5. Create time-based features
-            6. Compute cohort index
-            7. Capture null rates (after)
+            3. Generate features
+            4. Capture null rates (after)
 
         Returns:
-            pd.DataFrame:
-                Dataset enriched with engineered features.
-
-        Raises:
-            ValueError:
-                If required columns are missing.
+            pd.DataFrame: Feature-engineered dataset
         """
 
         self.logger.info("Starting feature engineering pipeline")
 
-        # Step 1: Validate schema
-        self.validate_schema()
+        # 1. Schema validation (reusable)
+        self._validate_schema()
 
-        # Step 2: Capture null rates before transformations
-        self.capture_null_rates("before")
+        # 2. Null tracking (reusable)
+        self._capture_null_rates("before")
 
-        # Step 3–6: Feature creation
-        self._add_revenue_feature()
-        self._add_cancellation_flag()
-        self._add_time_features()
-        self._add_cohort_index()
+        # 3. Feature generation
+        for step in self.pipeline_steps:
+            step()
 
-        # Step 7: Capture null rates after transformations
-        self.capture_null_rates("after")
+        # 4. Null tracking after
+        self._capture_null_rates("after")
 
         self.logger.info("Feature engineering pipeline completed successfully")
 

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Callable, Dict, Any, List
 import pandas as pd
 from reusables.reusable_functions import ReusableFunctions
 
@@ -62,6 +62,44 @@ class DataCleaner:
             "null_rates_before": {},  # Missing value ratios before cleaning
             "null_rates_after": {},  # Missing value ratios after cleaning
         }
+
+        self.pipeline_steps: List[Callable] = [
+            self._clean_dates,
+            self._clean_customer_no,
+            self._clean_country,
+            self._clean_product_name,
+        ]
+
+    def _validate_schema(self) -> None:
+        """
+        Validate that all required columns exist in the dataset.
+
+        Uses:
+            ReusableFunctions.validate_schema
+
+        Raises:
+            ValueError:
+                If any required column is missing.
+        """
+        ReusableFunctions.validate_schema(
+            df=self.df,
+            required_columns=self.REQUIRED_COLUMNS,
+            logger=self.logger,
+        )
+
+    def _capture_null_rates(self, stage: str) -> None:
+        """
+        Capture null value distribution across all columns.
+
+        Args:
+            stage (str): 'before' or 'after'
+        """
+        ReusableFunctions.capture_null_rates(
+            df=self.df,
+            quality_metrics=self.quality_metrics,
+            stage=stage,
+            logger=self.logger,
+        )
 
     def _clean_dates(self) -> None:
         """
@@ -210,35 +248,18 @@ class DataCleaner:
         self.logger.info("Starting data cleaning pipeline")
 
         # Step 1: Validate dataset schema
-        ReusableFunctions.validate_schema(
-            df=self.df, required_columns=self.REQUIRED_COLUMNS, logger=self.logger
-        )
-
+        self._validate_schema()
         # Step 2: Capture null distribution before cleaning
-        ReusableFunctions.capture_null_rates(
-            df=self.df,
-            quality_metrics=self.quality_metrics,
-            stage="before",
-            logger=self.logger,
-        )
-
+        self._capture_null_rates(stage='before')
+        
         # Step 3: Execute cleaning steps
-        self._clean_dates()
-        self._clean_customer_no()
-        self._clean_country()
-        self._clean_product_name()
-
+        for step in self.pipeline_steps:
+            step()
         # Step 4: Optimize memory usage
         self._optimize_categories()
 
         # Step 5: Capture null distribution after cleaning
-        ReusableFunctions.capture_null_rates(
-            df=self.df,
-            quality_metrics=self.quality_metrics,
-            stage="after",
-            logger=self.logger,
-        )
-
+        self._capture_null_rates(stage='after')
         self.logger.info("Data cleaning pipeline completed successfully")
 
         return {
