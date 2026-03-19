@@ -4,6 +4,9 @@ from injest import DataInjestor
 from features import FeatureEngineering
 from pipeline.analytics.customer_behavior import CustomerBehavior
 from pipeline.analytics.visualization_class import DataVisualization
+from pipeline.ml.dataset_builder import DatasetBuilder
+from pipeline.ml.feature_selector import FeatureSelector
+from pipeline.ml.model import ChurnModel
 
 
 def main():
@@ -45,32 +48,43 @@ def main():
     pareto_curve = viz.plot_pareto(pareto)
     retention_heatmap = viz.plot_retention(cohort_table)
 
+
+   # Build dataset
+    dataset = DatasetBuilder(rfm_table, clv_table).build()
+
+    # Extract label
+    y = dataset['Churn']
+
+    # Select features safely
+    X = FeatureSelector(dataset, label='Churn').select()
+
+    # Train model
+    model = ChurnModel(X, y).train()
      
-    # 6. Debug / Inspection
+    # 9. Debug / Inspection
      
-    print("\n=== CLEANED DATA INFO ===")
-    print(cleaned_df.info())
+    # print("\n=== CLEANED DATA INFO ===")
+    # print(cleaned_df.info())
 
-    print("\n=== FEATURE DATA SAMPLE ===")
-    print(feature_df.head())
+    # print("\n=== FEATURE DATA SAMPLE ===")
+    # print(feature_df.head())
 
-    print("\n=== DATA QUALITY METRICS ===")
-    print(cleaning_output["data_quality_metrics"])
+    # print("\n=== DATA QUALITY METRICS ===")
+    # print(cleaning_output["data_quality_metrics"])
 
-    print("\n=== RFM TABLE ===")
-    print(rfm_table.head())
+    # print("\n=== RFM TABLE ===")
+    # print(rfm_table)
 
-    print("\n=== PARETO ===")
-    print(pareto.head())
+    # print("\n=== PARETO ===")
+    # print(pareto.head())
 
-    print("\n=== CLV ===")
-    print(clv_table.head())
+    # print("\n=== CLV ===")
+    # print(clv_table.head())
 
-    print("\n=== COHORT ===")
-    print(cohort_table)
+    # print("\n=== COHORT ===")
+    # print(cohort_table)
 
-    print("\n=== COHORT ===")
-    print(metrics)
+    # print("\n=== COHORT ===")
 
 
 if __name__ == "__main__":
