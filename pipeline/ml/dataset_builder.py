@@ -82,13 +82,13 @@ class DatasetBuilder:
                 ["Frequency", "Lifespan", "CLV", "AvgGapDays"]
             ].mean()
         )
-        print('===========================================================')
+        print('Model Testing....................................................')
         print(
             dataset.groupby("Churn")[
                 ["Frequency", "Lifespan", "CLV", "RevenueTrend"]
             ].mean()
         )
-        # High CLV customers with negative revenue trend
+
         # These are my most valuable at-risk customers
         at_risk = dataset[
             (dataset["CLV"] > dataset["CLV"].quantile(0.75)) &
