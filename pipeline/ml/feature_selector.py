@@ -22,9 +22,9 @@ class FeatureSelector:
 
     # Columns that could leak future info
     LEAKAGE_COLUMNS: List[str] = ["Recency", "Lifespan", "CLV"]
-    def __init__(self, df: pd.DataFrame, label: str):
+    def __init__(self, df: pd.DataFrame):
         self.df = df.copy()
-        self.label = label
+        
 
     def select(self) -> pd.DataFrame:
         """
@@ -32,7 +32,7 @@ class FeatureSelector:
         """
         df = self.df.copy()
 
-        df = df.drop(columns=[self.label], errors="ignore")
+        # df = df.drop(columns=[self.label], errors="ignore")
 
         #  Remove identifiers
         df = df.drop(columns=self.DROP_COLUMNS, errors="ignore")

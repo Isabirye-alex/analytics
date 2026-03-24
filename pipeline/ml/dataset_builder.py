@@ -49,6 +49,7 @@ class DatasetBuilder:
         )
 
         dataset['Churn'] = (dataset['Recency']>90).astype('Int64')
+        dataset = dataset.drop(columns={'AOV','Monetary'})
 
         #  Store result
         self.dataset = dataset

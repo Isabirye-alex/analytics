@@ -51,15 +51,10 @@ def main():
 
    # Build dataset
     dataset = DatasetBuilder(rfm_table, clv_table).build()
-
-    # Extract label
-    y = dataset['Churn']
-
-    # Select features safely
-    X = FeatureSelector(dataset, label='Churn').select()
+    print(dataset.columns)
 
     # Train model
-    model = ChurnModel(X, y).train()
+    model = ChurnModel(dataset).train()
      
     # 9. Debug / Inspection
      
