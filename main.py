@@ -50,11 +50,11 @@ def main():
 
 
    # Build dataset
-    dataset = DatasetBuilder(rfm_table, clv_table).build()
+    dataset = DatasetBuilder(rfm_table, clv_table, feature_df).build()
     print(dataset.columns)
 
     # Train model
-    model = ChurnModel(dataset).train()
+    model = ChurnModel(dataset).train(threshold=0.4)
      
     # 9. Debug / Inspection
      
@@ -79,7 +79,8 @@ def main():
     # print("\n=== COHORT ===")
     # print(cohort_table)
 
-    # print("\n=== COHORT ===")
+    # print("\n=== Model Dataset ===")
+    # print(dataset.head())
 
 
 if __name__ == "__main__":

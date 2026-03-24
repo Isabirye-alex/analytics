@@ -1,13 +1,13 @@
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 from typing import Dict, Any
 from reusables.reusable_functions import ReusableFunctions
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, PolynomialFeatures
-from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import StratifiedKFold, cross_validate
 
 
 class ChurnModel:
@@ -28,7 +28,7 @@ class ChurnModel:
         "M_SCORE",
         "R_SCORE",
         "F_SCORE",
-        "Recency",  
+        "Recency",
     ]
 
     TARGET_COLUMN = "Churn"
@@ -58,18 +58,15 @@ class ChurnModel:
         # Define pipeline
         self.pipe = Pipeline(
             [
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
                 (
-                    "scaler", StandardScaler()),
-                    ('imputer', SimpleImputer(strategy='median')),
-                    ('poly', PolynomialFeatures(degree=2, interaction_only=True)),
-                (
-                    "model",
-                    LogisticRegression(
+                    "classifier",
+                    GradientBoostingClassifier(
+                        n_estimators=200,
+                        learning_rate=0.05,
+                        max_depth=4,
                         random_state=42,
-                        class_weight="balanced",
-                        max_iter=100,
-                        C=0.1,
-
                     ),
                 ),
             ]
@@ -114,7 +111,7 @@ class ChurnModel:
             y,
             test_size=self.test_size,
             random_state=self.random_state,
-            stratify=y,  #mportant for imbalance
+            stratify=y,  # mportant for imbalance
         )
 
         self.logger.info(f"Train size: {len(X_train)} | Test size: {len(X_test)}")
@@ -137,20 +134,7 @@ class ChurnModel:
         print("\nClassification Report:")
         print(classification_report(y_test, preds))
 
-    def get_feature_importance(self, x):
-        classifier = self.pipe.named_steps['model']
-
-        importance_df = pd.DataFrame(
-            {
-                'Feature': x.columns.tolist(),
-                'Coefficient': classifier.coef_[0],
-                'AbsCoefficient': abs(classifier.coef_[0]),
-
-            }
-        ).sort_values('AbsCoefficient', ascending=False)
-        print(importance_df)
-
-    def train(self) -> Dict[str, Any]:
+    def train(self, threshold: float  = 0.5) -> Dict[str, Any]:
         """
         Full training pipeline.
 
@@ -160,6 +144,9 @@ class ChurnModel:
             3. Train model
             4. Evaluate model
         """
+        self.logger.info(
+            f"Classifier: {type(self.pipe.named_steps['classifier']).__name__}"
+        )
 
         self.logger.info("Starting training pipeline")
 
@@ -174,14 +161,24 @@ class ChurnModel:
         self.pipe.fit(X_train, y_train)
 
         # Step 4: Predict
-        preds = self.pipe.predict_proba(X_test)[:, 1]
-        preds = (preds > 0.65).astype(int)
-        
+        proba = self.pipe.predict_proba(X_test)[:, 1]
+
+        preds = (proba > threshold).astype(int)
+        print(f"\nThreshold: {threshold}")
+
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+        scores = cross_validate(
+            self.pipe, X, y,
+            cv=cv,
+            scoring=["f1", "precision", "recall"],
+        )
+
+        print(pd.DataFrame(scores)[["test_f1", "test_precision", "test_recall"]].mean())
 
         # Step 5: Evaluate
         self._evaluate(y_test, preds)
-        # self.get_feature_importance(X_test)
-        self.get_feature_importance(X_train)
+        self.metrics['threshold'] = threshold
         self.logger.info("Training completed")
 
         return self.metrics

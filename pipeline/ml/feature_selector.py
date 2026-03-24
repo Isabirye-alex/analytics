@@ -21,7 +21,7 @@ class FeatureSelector:
     ]
 
     # Columns that could leak future info
-    LEAKAGE_COLUMNS: List[str] = ["Recency", "Lifespan", "CLV"]
+    LEAKAGE_COLUMNS: List[str] = ["Recency", "Lifespan", "CLV", 'AvgGapDays', 'ChurnThreshold']
     def __init__(self, df: pd.DataFrame):
         self.df = df.copy()
         
