@@ -10,6 +10,7 @@ Run:
     streamlit run dashboard.py
 """
 
+from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -112,7 +113,7 @@ def load_pipeline(file_path: str) -> dict:
     results = model.run_pipeline(threshold=0.4)
 
     cohort_serialisable = cohort.copy()
-    cohort_serialisable.index   = cohort_serialisable.index.astype(str)
+    cohort_serialisable.index = cohort_serialisable.index.astype(str)
     cohort_serialisable.columns = cohort_serialisable.columns.astype(str)
 
     return {
@@ -168,7 +169,7 @@ except Exception as e:
     st.stop()
 
 # Unpack
-rfm = data["rfm"]  
+rfm = data["rfm"]
 clv = data["clv"]
 cohort = data["cohort"]
 pareto = data["pareto"]
@@ -536,52 +537,40 @@ elif page == "Revenue Analysis":
 
     with col1:
         st.subheader("Pareto — Revenue Concentration")
-        st.caption(
-            "The red line shows cumulative revenue. Where it crosses 80% is your core customer base."
+        st.caption("Cumulative revenue vs cumulative customers")
+
+        fig, ax = plt.subplots(figsize=(20, 8))
+
+        # Main Pareto curve
+        ax.plot(
+            pareto["CumCustomerPct"],
+            pareto["CumRevenuePct"],
+            marker="o",
+            label="Cumulative Revenue",
         )
 
-        pareto_plot = pareto.copy().reset_index(drop=True)
+            # 80% revenue line (FIXED SCALE)
+        ax.axhline(80, linestyle="--", color="red", label="80% Revenue")
 
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
+            # Find cutoff point correctly
+        cutoff_idx = pareto[pareto["CumRevenuePct"] >= 80].index.min()
+        top_cutoff = pareto.loc[cutoff_idx, "CumCustomerPct"]
 
-        fig.add_trace(
-            go.Bar(
-                x=list(range(len(pareto_plot))),
-                y=(
-                    pareto_plot["TotalRevenue"]
-                    if "TotalRevenue" in pareto_plot.columns
-                    else pareto_plot.iloc[:, 1]
-                ),
-                name="Revenue",
-                marker_color="#4361ee",
-                opacity=0.7,
-            ),
-            secondary_y=False,
-        )
+            # Vertical line at correct x-position
+        ax.axvline(top_cutoff, linestyle="--", color="green", label="Core Customers")
 
-        if "CumulativePercentage" in pareto_plot.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=list(range(len(pareto_plot))),
-                    y=pareto_plot["CumulativePercentage"],
-                    name="Cumulative %",
-                    line=dict(color="#e63946", width=2),
-                ),
-                secondary_y=True,
-            )
-            fig.add_hline(
-                y=80,
-                line_dash="dash",
-                line_color="orange",
-                secondary_y=True,
-                annotation_text="80% of revenue",
-            )
+        ax.set_title("Pareto Analysis of Customers")
+        ax.set_xlabel("Cumulative Customer %")
+        ax.set_ylabel("Cumulative Revenue %")
 
-        fig.update_layout(plot_bgcolor="white", showlegend=False)
-        fig.update_yaxes(title_text="Revenue ($)", secondary_y=False, tickprefix="$")
-        fig.update_yaxes(title_text="Cumulative %", secondary_y=True, ticksuffix="%")
-        st.plotly_chart(fig, use_container_width=True)
+        ax.set_xlim(0, 100)
+        ax.set_ylim(0, 100)
 
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+
+        fig.tight_layout()
+        st.pyplot(fig)
     with col2:
         st.subheader("Revenue by Country")
 

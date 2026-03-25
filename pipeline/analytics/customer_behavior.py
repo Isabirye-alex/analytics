@@ -169,40 +169,42 @@ class CustomerBehavior:
         self.metrics["steps_executed"].append("rfm")
 
     def _build_pareto(self) -> None:
-        """
-        Compute Pareto distribution of revenue.
-
-        Output:
-            - Sorted revenue per customer
-            - Cumulative revenue percentage
-            - Customer distribution percentage
-
-        Purpose:
-            Identify top revenue-generating customers (80/20 rule).
-        """
         self.logger.info("Step: Pareto analysis")
 
+        # 1. Aggregate first
         revenue = (
-            self.df.groupby("CustomerNo")["TotalRevenue"]
+            self.df.groupby("CustomerNo", as_index=False)["TotalRevenue"]
             .sum()
-            .reset_index()
-            .sort_values(by="TotalRevenue", ascending=False)
         )
 
-        # Remove non-positive revenue customers
+        # 2. Clean data BEFORE sorting
         revenue = revenue[revenue["TotalRevenue"] > 0]
 
-        # Cumulative revenue contribution
-        revenue["CumRevenue"] = revenue["TotalRevenue"].cumsum()
-        revenue["CumRevenuePct"] = revenue["CumRevenue"] / revenue["TotalRevenue"].sum()
+        if revenue.empty:
+            self.logger.warning("Pareto skipped: no valid revenue data")
+            self.pareto = revenue
+            return
 
-        # Customer distribution
-        revenue = revenue.reset_index(drop=True)
-        revenue["CumCustomerPct"] = (revenue.index + 1) / len(revenue)
+        # 3. Sort correctly
+        revenue = revenue.sort_values("TotalRevenue", ascending=False).reset_index(drop=True)
+
+        # 4. Cumulative revenue
+        revenue["CumRevenue"] = revenue["TotalRevenue"].cumsum()
+
+        total = revenue["TotalRevenue"].sum()
+        if total == 0:
+            self.logger.warning("Pareto skipped: total revenue is zero")
+            self.pareto = revenue
+            return
+
+        # 5. Convert to PERCENT SCALE (0–100)
+        revenue["CumRevenuePct"] = (revenue["CumRevenue"] / total) * 100
+
+        # 6. Customer cumulative %
+        revenue["CumCustomerPct"] = ((revenue.index + 1) / len(revenue)) * 100
 
         self.pareto = revenue
         self.metrics["steps_executed"].append("pareto")
-
     def _build_clv(self) -> None:
         """
         Compute Customer Lifetime Value (CLV).
