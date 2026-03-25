@@ -9,17 +9,9 @@ class ReusableFunctions:
     All methods are stateless and reusable across projects.
     """
 
+
     @staticmethod
     def setup_logger(name: str) -> logging.Logger:
-        """
-        Create and configure a logger.
-
-        Args:
-            name (str): Logger name.
-
-        Returns:
-            logging.Logger: Configured logger instance.
-        """
         logger = logging.getLogger(name)
 
         if not logger.handlers:
@@ -31,8 +23,10 @@ class ReusableFunctions:
             logger.addHandler(handler)
             logger.setLevel(logging.INFO)
 
-        return logger
+            # 🔥 CRITICAL FIX
+            logger.propagate = False
 
+        return logger
     @staticmethod
     def validate_schema(
         df: pd.DataFrame, required_columns: list, logger: logging.Logger
