@@ -32,7 +32,7 @@ def run_pipeline(file_path: str) -> dict:
     pareto = cb_results["pareto"]
     cohort_table = cb_results["cohort"]
     clv_table = cb_results["clv"]
-    metrics = cb_results.get("tracking_metrics", {})
+    # metrics = cb_results.get("tracking_metrics", {})
 
     # 5. Build ML Dataset
     dataset = DatasetBuilder(rfm_table, clv_table, feature_df).build()
@@ -51,7 +51,7 @@ def run_pipeline(file_path: str) -> dict:
         "cohort": cohort_serialisable,
         "clv": clv_table.copy(),
         "dataset": dataset.copy(),
-        "metrics": metrics,
+        # "metrics": metrics,
     }
 
 
