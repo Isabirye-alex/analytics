@@ -690,7 +690,6 @@ elif page == "Retention Heatmap":
 
 # PAGE: CLV Table
 
-
 elif page == "Customer Lifetime Value":
 
     st.title("Customer Lifetime Value")
