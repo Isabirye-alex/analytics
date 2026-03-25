@@ -8,6 +8,10 @@ from pipeline.ml.dataset_builder import DatasetBuilder
 from pipeline.ml.feature_selector import FeatureSelector
 from pipeline.ml.model import ChurnModel
 
+from pathlib import Path
+
+# Get the directory that this script (main.py) is in
+
 
 def main():
     file_path = "sales.csv"
@@ -55,7 +59,12 @@ def main():
     churn_scores = model.predict(threshold=0.4)
     print("Churn Scores...........\n", churn_scores)
     feature_importance = model.get_feature_importance()
-    save_model = model.save('/dev/Projects/analytics/pipeline/ml/model.pk1')
+
+    HERE = Path(__file__).parent
+    save_path = HERE / "pipeline" / "ml" / "model.pk1"
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    save_model = model.save(str(save_path))
+
     # pipeline = model.run_pipeline()
 
     # 9. Debug / Inspection
