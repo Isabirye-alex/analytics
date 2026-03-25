@@ -111,13 +111,17 @@ def load_pipeline(file_path: str) -> dict:
     model = ChurnModel(dataset)
     results = model.run_pipeline(threshold=0.4)
 
+    cohort_serialisable = cohort.copy()
+    cohort_serialisable.index   = cohort_serialisable.index.astype(str)
+    cohort_serialisable.columns = cohort_serialisable.columns.astype(str)
+
     return {
-        "feature_df": feature_df,
-        "rfm": rfm,
-        "clv": clv,
-        "cohort": cohort,
-        "pareto": pareto,
-        "dataset": dataset,
+        "feature_df": feature_df.copy(),
+        "rfm": rfm.copy(),
+        "clv": clv.copy(),
+        "cohort": cohort_serialisable,
+        "pareto": pareto.copy(),
+        "dataset": dataset.copy(),
         "churn_scores": results["churn_scores"],
         "feature_importance": results["feature_importance"],
         "metrics": results["metrics"],
