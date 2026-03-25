@@ -46,13 +46,13 @@ st.markdown(
         .metric-card {
             background-color: #f8f9fa;
             border-radius: 8px;
-            padding: 16px;
+            padding: 2px;
             border-left: 4px solid #4361ee;
         }
         .insight-box {
             background-color: #fff3cd;
             border-radius: 8px;
-            padding: 12px 16px;
+            padding: 2px 2px;
             border-left: 4px solid #ffc107;
             margin-bottom: 8px;
         }
@@ -61,14 +61,18 @@ st.markdown(
             border-radius: 8px;
             padding: 12px 16px;
             border-left: 4px solid #dc3545;
-            margin-bottom: 8px;
+            margin-bottom: 2px;
         }
         .success-box {
             background-color: #d1e7dd;
             border-radius: 8px;
             padding: 12px 16px;
             border-left: 4px solid #198754;
-            margin-bottom: 8px;
+            margin-bottom: 2px;
+        }
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
         }
         h1 { color: #1a1a2e; }
         h2 { color: #16213e; }
@@ -540,8 +544,6 @@ elif page == "Revenue Analysis":
         st.caption("Cumulative revenue vs cumulative customers")
 
         df = pareto.copy()
-
-        total_revenue = df['TotalRevenue'].sum()
 
         fig = go.Figure()
 
