@@ -539,38 +539,53 @@ elif page == "Revenue Analysis":
         st.subheader("Pareto — Revenue Concentration")
         st.caption("Cumulative revenue vs cumulative customers")
 
-        fig, ax = plt.subplots(figsize=(20, 8))
+        df = pareto.copy()
 
-        # Main Pareto curve
-        ax.plot(
-            pareto["CumCustomerPct"],
-            pareto["CumRevenuePct"],
-            marker="o",
-            label="Cumulative Revenue",
+        total_revenue = df['TotalRevenue'].sum()
+
+        fig = go.Figure()
+
+        # Bars = Revenue
+        fig.add_trace(
+            go.Bar(
+                x=df.index,
+                y=df["CumRevenue"],
+                name="Revenue",
+                marker_color="#4361ee",
+                opacity=0.7,
+            )
         )
 
-            # 80% revenue line (FIXED SCALE)
-        ax.axhline(80, linestyle="--", color="red", label="80% Revenue")
+        # Line = Cumulative %
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df["CumRevenuePct"],
+                name="Cumulative %",
+                mode="lines+markers", 
+                line=dict(color="#e63946", width=2),
+                yaxis="y2",  
+            )
+        )
 
-            # Find cutoff point correctly
-        cutoff_idx = pareto[pareto["CumRevenuePct"] >= 80].index.min()
-        top_cutoff = pareto.loc[cutoff_idx, "CumCustomerPct"]
+        # 80% reference line
+        fig.add_hline(y=80, line_dash="dash", line_color="orange", yref="y2")
 
-            # Vertical line at correct x-position
-        ax.axvline(top_cutoff, linestyle="--", color="green", label="Core Customers")
+        # Layout with secondary axis enabled
+        fig.update_layout(
+            title="Pareto Chart — Revenue Concentration",
+            template="plotly_white",
+            yaxis=dict(title="Revenue"),
+            yaxis2=dict(
+                title="Cumulative %",
+                side="right",
+                range=[0, 110],
+            ),
+            legend=dict(orientation="h"),
+        )
 
-        ax.set_title("Pareto Analysis of Customers")
-        ax.set_xlabel("Cumulative Customer %")
-        ax.set_ylabel("Cumulative Revenue %")
+        st.plotly_chart(fig, use_container_width=True)
 
-        ax.set_xlim(0, 100)
-        ax.set_ylim(0, 100)
-
-        ax.grid(True, alpha=0.3)
-        ax.legend()
-
-        fig.tight_layout()
-        st.pyplot(fig)
     with col2:
         st.subheader("Revenue by Country")
 
