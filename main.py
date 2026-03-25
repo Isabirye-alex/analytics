@@ -78,7 +78,7 @@ def train_model(dataset: pd.DataFrame, threshold: float = 0.4) -> dict:
     }
 
 
-# Optional CLI usage (safe)
+# 
 if __name__ == "__main__":
     results = run_pipeline("sales.csv")
     model_results = train_model(results["dataset"])
