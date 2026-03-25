@@ -1,3 +1,4 @@
+from matplotlib.path import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 import logging
@@ -17,8 +18,9 @@ class DataVisualization:
             level=logging.INFO,
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
-        self.figures_dir = figures_dir
-        os.makedirs(self.figures_dir, exist_ok=True)
+        HERE = Path(__file__). # Adjust based on where this file is
+        self.figures_dir = HERE / "figures"
+        self.figures_dir.mkdir(parents=True, exist_ok=True)
         self.logger.info(f"Figures will be saved to: {self.figures_dir}")
 
     # -------------------------------
