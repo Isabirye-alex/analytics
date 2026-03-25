@@ -472,29 +472,4 @@ class ChurnModel:
 
         return instance
     
-    # Run entire pipeline
-    def run_pipeline(self, threshold: float = 0.4) -> dict:
-        """
-        Execute the full model lifecycle in sequence.
-
-        Steps:
-            1. Train and evaluate
-            2. Cross-validate
-            3. Extract feature importances
-            4. Score all customers
-
-        Returns:
-            dict: Results from each stage.
-        """
-
-        metrics = self.train(threshold=threshold)
-        cv_results = self.cross_validate_model()
-        importances = self.get_feature_importance()
-        scores = self.predict(threshold=threshold)
-
-        return {
-            "metrics": metrics,
-            "cv_results": cv_results,
-            "feature_importance": importances,
-            "churn_scores": scores,
-        }
+ 
