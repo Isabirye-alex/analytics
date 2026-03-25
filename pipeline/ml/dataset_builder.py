@@ -77,17 +77,17 @@ class DatasetBuilder:
 
         dataset['Churn'] = (dataset['Recency'] > (dataset['ChurnThreshold'])).astype('Int64')
         dataset = dataset.drop(columns={'AOV','Monetary'})
-        print(
-            dataset.groupby("Churn")[
-                ["Frequency", "Lifespan", "CLV", "AvgGapDays"]
-            ].mean()
-        )
-        print('Model Testing....................................................')
-        print(
-            dataset.groupby("Churn")[
-                ["Frequency", "Lifespan", "CLV", "RevenueTrend"]
-            ].mean()
-        )
+        # print(
+        #     dataset.groupby("Churn")[
+        #         ["Frequency", "Lifespan", "CLV", "AvgGapDays"]
+        #     ].mean()
+        # )
+        # print('Model Testing....................................................')
+        # print(
+        #     dataset.groupby("Churn")[
+        #         ["Frequency", "Lifespan", "CLV", "RevenueTrend"]
+        #     ].mean()
+        # )
 
         # These are my most valuable at-risk customers
         at_risk = dataset[
@@ -98,7 +98,7 @@ class DatasetBuilder:
             "CLV", ascending=False
         )
 
-        print(at_risk.head(10))
+        # print(at_risk.head(10))
         #  Store result
         self.dataset = dataset
 
