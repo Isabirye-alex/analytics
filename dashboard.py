@@ -74,6 +74,24 @@ st.markdown(
             padding-top: 1rem;
             padding-bottom: 1rem;
         }
+        .box {
+                padding: 15px;
+                border-radius: 8px;
+                font-size: 16px;
+                margin-top: 10px;
+                color: white;
+            }
+
+            /* Variants */
+            .green { background-color: #28a745; }
+            .blue { background-color: #007bff; }
+            .orange { background-color: #fd7e14; }
+            .black { background-color: #000000; }
+            .white { 
+                background-color: #ffffff; 
+                color: #000000; 
+                border: 1px solid #ddd;
+            }
         h1 { color: #1a1a2e; }
         h2 { color: #16213e; }
     </style>
@@ -272,7 +290,7 @@ if page == "Overview":
     # Business insight
     st.markdown(
         f"""
-    <div class="insight-box">
+    <div class="box blue">
          <strong>Key Takeaway:</strong>
         Your largest customer segment is <strong>{top_segment}</strong>.
         {churners:,} customers ({churn_rate:.0%} of your base) are predicted to leave.
@@ -434,7 +452,7 @@ elif page == "Churn Intelligence":
 
     st.markdown(
         f"""
-    <div class="warning-box">
+    <div class="box orange">
          <strong>Action Required:</strong>
         These {len(at_risk)} customers represent your highest-value churn risk.
         Their recent spend is declining and the model is highly confident they are leaving.
@@ -562,9 +580,9 @@ elif page == "Revenue Analysis":
                 x=df.index,
                 y=df["CumRevenuePct"],
                 name="Cumulative %",
-                mode="lines+markers", 
+                mode="lines+markers",
                 line=dict(color="#e63946", width=2),
-                yaxis="y2",  
+                yaxis="y2",
             )
         )
 
@@ -682,7 +700,7 @@ elif page == "Retention Heatmap":
             avg_m1_retention = month1_col.mean()
             st.markdown(
                 f"""
-            <div class="{'warning-box' if avg_m1_retention < 0.3 else 'success-box'}">
+            <div class="{'box orange' if avg_m1_retention < 0.3 else 'success-box'}">
                 {'⚠️' if avg_m1_retention < 0.3 else '✅'}
                 <strong>Month 1 Retention:</strong>
                 On average, <strong>{avg_m1_retention:.0%}</strong> of new customers
@@ -703,7 +721,6 @@ elif page == "Customer Lifetime Value":
     st.title("Customer Lifetime Value")
     st.markdown(
         "Which customers are worth the most over their entire relationship with you.",
-        
     )
     st.markdown("---")
 
@@ -807,7 +824,7 @@ elif page == "Customer Lifetime Value":
     if at_risk_top > 0:
         st.markdown(
             f"""
-        <div class="warning-box">
+        <div class="box orange">
             <strong>{at_risk_top} of your top 20 customers are predicted to churn.</strong>
             These accounts represent significant revenue risk.
             Cross-reference with the Priority Retention List in Churn Intelligence.
@@ -818,7 +835,7 @@ elif page == "Customer Lifetime Value":
     else:
         st.markdown(
             """
-        <div class="success-box">
+        <div class="box blue">
             <strong>All top 20 customers are predicted to be retained.</strong>
             Focus retention efforts on the mid-tier customers in the Churn Intelligence tab.
         </div>
