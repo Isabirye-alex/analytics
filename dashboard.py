@@ -144,7 +144,7 @@ with st.sidebar:
     file_path = st.text_input("Data file path", value="sales.csv")
 
     st.markdown("---")
-    st.markdown("### Navigation")
+    st.markdown("Navigation")
 
     page = st.radio(
         label="Go to",
@@ -162,9 +162,7 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Pipeline runs once per session. Refresh the page to reload data.")
 
-
 # Load Data
-
 
 try:
     data = load_pipeline(file_path)
@@ -704,7 +702,8 @@ elif page == "Customer Lifetime Value":
 
     st.title("Customer Lifetime Value")
     st.markdown(
-        "Which customers are worth the most over their entire relationship with you."
+        "Which customers are worth the most over their entire relationship with you.",
+        
     )
     st.markdown("---")
 

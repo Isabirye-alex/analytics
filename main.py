@@ -9,7 +9,6 @@ from pipeline.ml.model import ChurnModel
 
 def run_pipeline(file_path: str) -> dict:
     """
-    Runs the full data pipeline (NO side effects).
     Returns all intermediate datasets.
     """
 
@@ -32,12 +31,11 @@ def run_pipeline(file_path: str) -> dict:
     pareto = cb_results["pareto"]
     cohort_table = cb_results["cohort"]
     clv_table = cb_results["clv"]
-    # metrics = cb_results.get("tracking_metrics", {})
+    metrics = cb_results.get("tracking_metrics", {})
 
     # 5. Build ML Dataset
     dataset = DatasetBuilder(rfm_table, clv_table, feature_df).build()
 
-    # 🔒 IMPORTANT: Make cohort serializable (for Streamlit caching)
     cohort_serialisable = cohort_table.copy()
     cohort_serialisable.index = cohort_serialisable.index.astype(str)
     cohort_serialisable.columns = cohort_serialisable.columns.astype(str)
@@ -51,7 +49,7 @@ def run_pipeline(file_path: str) -> dict:
         "cohort": cohort_serialisable,
         "clv": clv_table.copy(),
         "dataset": dataset.copy(),
-        # "metrics": metrics,
+        "metrics": metrics,
     }
 
 
@@ -72,13 +70,12 @@ def train_model(dataset: pd.DataFrame, threshold: float = 0.4) -> dict:
     feature_importance = model.get_feature_importance()
 
     return {
-        "model": model,  # safe for st.cache_resource
+        "model": model,
         "churn_scores": churn_scores,
         "feature_importance": feature_importance,
     }
 
 
-# 
 if __name__ == "__main__":
     results = run_pipeline("sales.csv")
     model_results = train_model(results["dataset"])

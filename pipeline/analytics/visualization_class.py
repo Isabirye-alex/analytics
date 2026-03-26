@@ -8,9 +8,9 @@ class DataVisualization:
     Returns matplotlib figures only.
     """
 
-    # -------------------------------
+
     # Retention Heatmap
-    # -------------------------------
+
     def plot_retention(self, retention_df):
         if retention_df.empty:
             return None
@@ -25,9 +25,9 @@ class DataVisualization:
         fig.tight_layout()
         return fig
 
-    # -------------------------------
+
     # Pareto Curve
-    # -------------------------------
+
     def plot_pareto(self, pareto_df):
         if pareto_df.empty:
             return None

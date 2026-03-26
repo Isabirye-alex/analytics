@@ -1,14 +1,11 @@
 import pandas as pd
 import os
 import logging
-from sqlalchemy import create_engine
-
 
 class DataIngestor:
 
     def __init__(self, path):
         self.source_path = path
-        # self.engine = create_engine(connection_string)
         self.metrics = []
         self.logger = logging.getLogger(self.__class__.__name__)
         logging.basicConfig(
