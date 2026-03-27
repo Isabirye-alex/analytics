@@ -66,9 +66,7 @@ class CustomerBehavior:
             self._build_cohort,
         ]
 
-
     # Validation Layer (Reusable)
-
 
     def _validate_schema(self) -> None:
         """
@@ -87,9 +85,7 @@ class CustomerBehavior:
             logger=self.logger,
         )
 
-
     # Pipeline Steps
-
 
     def _build_rfm(self) -> None:
         """
@@ -109,10 +105,14 @@ class CustomerBehavior:
         # Snapshot date defines "today" for recency calculation
         snapshot_date = self.df["Date"].max() + pd.Timedelta(days=1)
 
+        total_customers_before = self.df["CustomerNo"].nunique()
+        self.logger.info(f"Total Customers found: {total_customers_before}customers ")
+        self.metrics["TotalCustomersBefore"] = total_customers_before
+
         # Exclude cancelled transactions
         base = self.df[self.df["CancelledInvoice"] == False]
 
-        # --- RFM Core Metrics ---
+        # RFM Core Metrics
         recency = (
             base.groupby("CustomerNo")["Date"]
             .agg(lambda x: (snapshot_date - x.max()).days)
@@ -164,6 +164,12 @@ class CustomerBehavior:
             rfm["R_SCORE"].astype(str) + rfm["F_SCORE"].astype(str)
         ).replace(segs, regex=True)
 
+        total_customers_after = len(rfm)
+        self.logger.info(
+            f"Total Customers after cleaning : {total_customers_after} customers"
+        )
+        self.metrics["TotalCustomersAfter"] = total_customers_after
+
         # Store result
         self.rfm_table = rfm
         self.metrics["steps_executed"].append("rfm")
@@ -172,10 +178,7 @@ class CustomerBehavior:
         self.logger.info("Step: Pareto analysis")
 
         # 1. Aggregate first
-        revenue = (
-            self.df.groupby("CustomerNo", as_index=False)["TotalRevenue"]
-            .sum()
-        )
+        revenue = self.df.groupby("CustomerNo", as_index=False)["TotalRevenue"].sum()
 
         # 2. Clean data BEFORE sorting
         revenue = revenue[revenue["TotalRevenue"] > 0]
@@ -186,7 +189,9 @@ class CustomerBehavior:
             return
 
         # 3. Sort correctly
-        revenue = revenue.sort_values("TotalRevenue", ascending=False).reset_index(drop=True)
+        revenue = revenue.sort_values("TotalRevenue", ascending=False).reset_index(
+            drop=True
+        )
 
         # 4. Cumulative revenue
         revenue["CumRevenue"] = revenue["TotalRevenue"].cumsum()
@@ -205,6 +210,7 @@ class CustomerBehavior:
 
         self.pareto = revenue
         self.metrics["steps_executed"].append("pareto")
+
     def _build_clv(self) -> None:
         """
         Compute Customer Lifetime Value (CLV).
@@ -280,8 +286,6 @@ class CustomerBehavior:
         self.metrics["steps_executed"].append("cohort")
 
     # Pipeline Execution
-
-
     def run_pipeline(self) -> Dict[str, pd.DataFrame]:
         """
         Execute the full CustomerBehavior pipeline.
@@ -315,5 +319,5 @@ class CustomerBehavior:
             "pareto": self.pareto,
             "clv": self.clv_table,
             "cohort": self.cohort,
-            'tracking_metrics': self.metrics
+            "tracking_metrics": self.metrics,
         }  # type: ignore

@@ -2,7 +2,6 @@ import pandas as pd
 import joblib
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import (
     StratifiedKFold,
@@ -178,14 +177,14 @@ class ChurnModel:
                 self.logger.warning(f"Dropping constant columns: {constant_cols}")
                 X = X.drop(columns=constant_cols)
 
-            #Optional: enforce numeric features only
+            #enforce numeric features only
             non_numeric_cols = X.select_dtypes(exclude=["number"]).columns.tolist()
             if non_numeric_cols:
                 self.logger.warning(f"Non-numeric columns detected: {non_numeric_cols}")
-                # Option 1: drop them
+                #drop them
                 X = X.select_dtypes(include=["number"])
 
-            #Final sanity check
+            #Final check
             if X.shape[1] == 0:
                 raise ValueError("No usable features remaining after preprocessing")
 

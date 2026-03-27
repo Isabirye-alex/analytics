@@ -2,6 +2,7 @@ import pandas as pd
 from clean import DataCleaner
 from ingest import DataIngestor
 from features import FeatureEngineering
+from pipeline.analytics.business_intelligence import BusinessIntelligence
 from pipeline.analytics.customer_behavior import CustomerBehavior
 from pipeline.ml.dataset_builder import DatasetBuilder
 from pipeline.ml.model import ChurnModel
@@ -55,6 +56,28 @@ def run_pipeline(file_path: str) -> dict:
         cohort_serialisable.index = cohort_serialisable.index.astype(str)
         cohort_serialisable.columns = cohort_serialisable.columns.astype(str)
 
+        
+        # Business Intelligence
+        try: bi_results = BusinessIntelligence(feature_df, rfm_table).run_pipeline()
+
+        except Exception as e:
+            raise RuntimeError(f'Unkown error occured in BI class : {e}')
+        
+        # Extract BI functions safely
+        try:
+            revenue_by_segment = bi_results['revenue_by_segment']
+            revenue_by_country = bi_results['revenue_by_country']
+            top_customers = bi_results['top_customers']
+            top_products = bi_results['top_products']
+            top_country_products = bi_results['top_products_by_country']
+            top_segment_products = bi_results['top_products_by_segment']
+            bi_metrics = bi_results['metrics']
+            top_canelling_segments = bi_results['top_cancelling_segments']
+            top_canelling_country = bi_results['top_cancelling_countries']
+        except Exception as e:
+            raise RuntimeError(f'Error occurred While Executing Business intelligence steps: {e}')
+
+
         return {
             "raw": df.copy(),
             "cleaned": cleaned_df.copy(),
@@ -65,7 +88,16 @@ def run_pipeline(file_path: str) -> dict:
             "clv": clv_table.copy(),
             "dataset": dataset.copy(),
             "metrics": metrics,
-        }
+            "country_revenue": revenue_by_country.copy(),
+            "segment_revenue": revenue_by_segment.copy(),
+            "top_customers" : top_customers.copy(),
+            "top_products": top_products.copy(),
+            "top_product_by_country": top_country_products.copy(),
+            "top_products_by_segment": top_segment_products.copy(),
+            "top_cancelling_countries": top_canelling_country.copy(),
+            "top_cancelling_segments": top_canelling_segments.copy(),
+            "bi_metrics": bi_metrics.copy()
+                            }
 
     except Exception as e:
         print(f"[PIPELINE FAILED] {e}")

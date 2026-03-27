@@ -9,24 +9,27 @@ class ReusableFunctions:
     All methods are stateless and reusable across projects.
     """
 
-
     @staticmethod
     def setup_logger(name: str) -> logging.Logger:
-        logger = logging.getLogger(name)
+        try:
+            # Call logger function
+            logger = logging.getLogger(name)
 
-        if not logger.handlers:
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-            handler.setFormatter(formatter)
-            logger.addHandler(handler)
-            logger.setLevel(logging.INFO)
+            if not logger.handlers:
+                handler = logging.StreamHandler()
+                formatter = logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                )
+                handler.setFormatter(formatter)
+                logger.addHandler(handler)
+                logger.setLevel(logging.INFO)
 
-            # 🔥 CRITICAL FIX
-            logger.propagate = False
+                logger.propagate = False
 
-        return logger
+            return logger
+        except Exception as e:
+            raise RuntimeError(f"Error occured While setting up logger: {e}")
+
     @staticmethod
     def validate_schema(
         df: pd.DataFrame, required_columns: list, logger: logging.Logger
@@ -42,13 +45,18 @@ class ReusableFunctions:
         Raises:
             ValueError: If columns are missing
         """
-        missing = [col for col in required_columns if col not in df.columns]
+        try:
+            missing = [col for col in required_columns if col not in df.columns]
 
-        if missing:
-            logger.error(f"Missing required columns: {missing}")
-            raise ValueError(f"Missing required columns: {missing}")
+            if missing:
+                logger.error(f"Missing required columns: {missing}")
+                raise ValueError(f"Missing required columns: {missing}")
 
-        logger.info("Schema validation passed")
+            logger.info("Schema validation passed")
+        except Exception as e:
+            raise RuntimeError(
+                f"Error validating Schema for module {__class__.__name__}. {e}"
+            )
 
     @staticmethod
     def capture_null_rates(
@@ -63,13 +71,16 @@ class ReusableFunctions:
             stage (str): 'before' or 'after'
             logger (logging.Logger): Logger instance
         """
-        null_rates = df.isna().mean().round(4).to_dict()
+        try:
+            null_rates = df.isna().mean().round(4).to_dict()
 
-        if stage == "before":
-            quality_metrics["null_rates_before"] = null_rates
-        elif stage == "after":
-            quality_metrics["null_rates_after"] = null_rates
-        else:
-            raise ValueError("Stage must be 'before' or 'after'")
+            if stage == "before":
+                quality_metrics["null_rates_before"] = null_rates
+            elif stage == "after":
+                quality_metrics["null_rates_after"] = null_rates
+            else:
+                raise ValueError("Stage must be 'before' or 'after'")
 
-        logger.info(f"Captured null rates ({stage})")
+            logger.info(f"Captured null rates ({stage})")
+        except Exception as e:
+            raise RuntimeError(f"Error capturing null rates: {e}")
