@@ -1,51 +1,97 @@
 import pandas as pd
 import os
-import logging
 from sqlalchemy import create_engine
+from reusables.reusable_functions import ReusableFunctions
+from typing import Dict, Any
+
 
 class DataIngestor:
+    """
+    Handles data ingestion from CSV files and persistence to PostgreSQL.
+
+    Responsibilities:
+        - Load raw CSV data into a DataFrame
+        - Persist processed DataFrames to PostgreSQL
+        - Track ingestion metrics
+    """
 
     def __init__(self):
+        self.metrics: Dict[str, Any] = {
+            "rows_ingested": None,
+            "source_path": None,
+        }
+        self.logger = ReusableFunctions.setup_logger(self.__class__.__name__)
 
-        self.metrics = []
-        self.logger = logging.getLogger(self.__class__.__name__)
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        )
+    def fetch_data_from_csv(self, file_path: str) -> pd.DataFrame:
+        """
+        Load a CSV file into a DataFrame.
 
-    def fetch_data_from_csv(self, file_path: str):
+        Args:
+            file_path (str): Path to the CSV file.
+
+        Returns:
+            pd.DataFrame: Raw loaded data.
+
+        Raises:
+            FileNotFoundError: If the file does not exist at the given path.
+        """
+
         if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found at: {file_path}")
 
-            raise FileNotFoundError(f"File Not found at {file_path}")
-        return pd.read_csv(file_path)
+        df = pd.read_csv(file_path)
 
-    def save_to_postgress(self, df, tablename, string: str):
+        self.metrics["rows_ingested"] = len(df)
+        self.metrics["source_path"] = file_path
+
+        self.logger.info(f"Ingested {len(df)} rows from {file_path}")
+
+        return df
+
+    def save_to_postgres(
+        self,
+        df: pd.DataFrame,
+        table_name: str,
+        connection_string: str,
+    ) -> None:
         """
-        Stores a specific dataframe to PostgreSQL.
-        Converts unsupported types (Period, category) to string automatically.
+        Persist a DataFrame to a PostgreSQL table.
+
+        Converts Period and category columns to string before writing
+        since PostgreSQL does not support these dtypes natively.
+
+        Args:
+            df (pd.DataFrame): Data to persist.
+            table_name (str): Target table name.
+            connection_string (str): SQLAlchemy connection string.
+
+        Raises:
+            RuntimeError: If the database write fails.
         """
-        engine = create_engine(string)
+
+        engine = create_engine(connection_string)
+
         try:
-            # Convert Period columns to string
+            df = df.copy()
+
+            # PostgreSQL does not support Period dtype
             for col in df.columns:
-                if pd.api.types.is_period_dtype(df[col]): # type: ignore
+                if pd.api.types.is_period_dtype(df[col]):  # type: ignore
                     df[col] = df[col].astype(str)
 
-            # Convert category columns to string
-            cat_cols = df.select_dtypes(include=['category']).columns
-            for col in cat_cols:
+            # PostgreSQL does not support category dtype
+            for col in df.select_dtypes(include=["category"]).columns:
                 df[col] = df[col].astype(str)
 
-            # Save to PostgreSQL
             df.to_sql(
-                tablename,
+                table_name,
                 engine,
-                if_exists='replace',
-                index=False
+                if_exists="replace",
+                index=False,
             )
-            print('Successfully saved to db')
+
+            self.logger.info(f"Saved {len(df)} rows to table '{table_name}'")
+
         except Exception as e:
-            print(f'Error saving to db: {e}')
-            import traceback
-            traceback.print_exc()
+            self.logger.error(f"Failed to save '{table_name}' to PostgreSQL: {e}")
+            raise RuntimeError(f"Database write failed for table '{table_name}'") from e

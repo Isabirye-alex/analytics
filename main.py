@@ -146,7 +146,7 @@ def save_to_db(results: dict, connection_string: str):
             continue
 
         try:
-            db_ingestor.save_to_postgress(df, table_name, connection_string)
+            db_ingestor.save_to_postgres(df, table_name, connection_string)
             print(f"[DB] Saved table: {table_name}")
 
         except Exception as e:
