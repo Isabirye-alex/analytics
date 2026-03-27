@@ -111,7 +111,7 @@ def load_pipeline(file_path: str) -> dict:
     """
 
     # Ingest
-    raw_df = DataIngestor(file_path).fetch_data_from_csv()
+    raw_df = DataIngestor().fetch_data_from_csv(file_path)
     if isinstance(raw_df, Exception):
         raise raw_df
 
@@ -157,12 +157,10 @@ def load_pipeline(file_path: str) -> dict:
 
 with st.sidebar:
     st.title("Customer Analytics")
-    st.markdown("---")
 
-    file_path = st.text_input("Data file path", value="sales.csv")
+    file_path = 'sales.csv'
 
-    st.markdown("---")
-    st.markdown("Navigation")
+    st.markdown("Navigation Menu")
 
     page = st.radio(
         label="Go to",
@@ -661,7 +659,7 @@ elif page == "Retention Heatmap":
 
     st.markdown(
         """
-    <div class="insight-box">
+    <div class="box green">
         💡 <strong>How to read this:</strong>
         Each row is a group of customers who made their first purchase in that month.
         Each column shows what percentage of them came back in a later month.
@@ -684,7 +682,7 @@ elif page == "Retention Heatmap":
             y="First Purchase Month",
             color="Retention %",
         ),
-        text_auto=".0%",
+        text_auto=".0%", # type: ignore
     )
     fig.update_layout(
         xaxis_title="Months Since First Purchase",
