@@ -541,7 +541,6 @@ elif page == "Customer Segments":
 
     st.dataframe(seg_summary, use_container_width=True, hide_index=True)
 
-
 # PAGE: Revenue Analysis
 
 

@@ -129,72 +129,143 @@ class ChurnModel:
 
     # Data Preparation
 
+
     def _prepare_features(self):
         """
-        Separate feature matrix from target label.
-
-        Drops leakage columns and the target column from X.
-        Silently skips DROP_COLUMNS that are not present in the dataset.
-
-        Returns:
-            X (pd.DataFrame): Clean feature matrix.
-            y (pd.Series): Binary churn labels.
-
-        Raises:
-            ValueError: If TARGET_COLUMN is absent from the dataset.
+        Prepare feature matrix and target with validation and safety checks.
         """
 
-        if self.TARGET_COLUMN not in self.df.columns:
-            raise ValueError(
-                f"Target column '{self.TARGET_COLUMN}' missing from dataset."
-            )
+        try:
+            #Validate dataset
+            if self.df is None or self.df.empty:
+                raise ValueError("Input dataframe is empty or None")
 
-        y = self.df[self.TARGET_COLUMN]
+            #Check target exists
+            if self.TARGET_COLUMN not in self.df.columns:
+                raise ValueError(
+                    f"Target column '{self.TARGET_COLUMN}' missing from dataset."
+                )
 
-        cols_to_drop = [
-            col
-            for col in self.DROP_COLUMNS + [self.TARGET_COLUMN]
-            if col in self.df.columns
-        ]
-        X = self.df.drop(columns=cols_to_drop)
+            #Extract target
+            y = self.df[self.TARGET_COLUMN]
 
-        self.logger.info(f"Features: {X.columns.tolist()}")
-        self.logger.info(f"Feature shape: {X.shape} | Target shape: {y.shape}")
+            #Validate target
+            if y.isnull().any():
+                raise ValueError("Target column contains missing values")
 
-        return X, y
+            unique_classes = y.nunique()
+            if unique_classes < 2:
+                raise ValueError(
+                    f"Target has only {unique_classes} class. Cannot train model."
+                )
+
+            #Drop leakage + target
+            cols_to_drop = [
+                col
+                for col in self.DROP_COLUMNS + [self.TARGET_COLUMN]
+                if col in self.df.columns
+            ]
+
+            X = self.df.drop(columns=cols_to_drop)
+
+            #Check feature matrix
+            if X.empty:
+                raise ValueError("Feature matrix is empty after dropping columns")
+
+            #Remove constant columns (useless for ML)
+            constant_cols = [col for col in X.columns if X[col].nunique() <= 1]
+            if constant_cols:
+                self.logger.warning(f"Dropping constant columns: {constant_cols}")
+                X = X.drop(columns=constant_cols)
+
+            #Optional: enforce numeric features only
+            non_numeric_cols = X.select_dtypes(exclude=["number"]).columns.tolist()
+            if non_numeric_cols:
+                self.logger.warning(f"Non-numeric columns detected: {non_numeric_cols}")
+                # Option 1: drop them
+                X = X.select_dtypes(include=["number"])
+
+            #Final sanity check
+            if X.shape[1] == 0:
+                raise ValueError("No usable features remaining after preprocessing")
+
+            #Logging
+            self.logger.info(f"Features: {X.columns.tolist()}")
+            self.logger.info(f"Feature shape: {X.shape} | Target shape: {y.shape}")
+
+            return X, y
+
+        except Exception as e:
+            self.logger.error(f"[FEATURE PREPARATION FAILED] {e}")
+            raise
 
     def _split_data(self, X: pd.DataFrame, y: pd.Series):
         """
-        Perform stratified train/test split.
-
-        Stratification preserves the churn ratio in each split,
-        preventing accidental class imbalance in the test set.
-
-        Args:
-            X (pd.DataFrame): Feature matrix.
-            y (pd.Series): Target labels.
-
-        Returns:
-            X_train, X_test, y_train, y_test
+        Perform stratified train/test split with validation and error handling.
         """
 
-        self.logger.info(
-            f"Splitting data — test_size={self.test_size}, "
-            f"random_state={self.random_state}"
-        )
+        try:
+            self.logger.info(
+                f"Splitting data — test_size={self.test_size}, "
+                f"random_state={self.random_state}"
+            )
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X,
-            y,
-            test_size=self.test_size,
-            random_state=self.random_state,
-            stratify=y,  # preserves class ratio across splits
-        )
+            # Basic validation
+            if X is None or y is None:
+                raise ValueError("X or y is None")
 
-        self.logger.info(f"Train size: {len(X_train)} | Test size: {len(X_test)}")
+            if len(X) == 0 or len(y) == 0:
+                raise ValueError("Empty dataset provided")
 
-        return X_train, X_test, y_train, y_test
+            if len(X) != len(y):
+                raise ValueError(f"Mismatch between X ({len(X)}) and y ({len(y)}) lengths")
 
+            # Check target validity
+            unique_classes = y.nunique()
+            if unique_classes < 2:
+                raise ValueError(
+                    f"Target variable has only {unique_classes} class. "
+                    "Stratified split requires at least 2 classes."
+                )
+
+            # Check for NaNs in target (critical)
+            if y.isnull().any():
+                raise ValueError("Target variable contains missing values")
+
+            # Stratification can fail if classes are too small
+            min_class_count = y.value_counts().min()
+            if min_class_count < 2:
+                raise ValueError(
+                    "One of the classes has less than 2 samples. "
+                    "Stratified split will fail."
+                )
+
+            # Split
+            try:
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X,
+                    y,
+                    test_size=self.test_size,
+                    random_state=self.random_state,
+                    stratify=y,
+                )
+            except Exception as e:
+                raise RuntimeError(f"[SPLIT ERROR] {e}")
+
+            self.logger.info(f"Train size: {len(X_train)} | Test size: {len(X_test)}")
+
+            # Post-check
+            if y_train.nunique() < 2 or y_test.nunique() < 2:
+                self.logger.warning(
+                    "One of the splits lost class diversity. "
+                    "Model performance may be unreliable."
+                )
+
+            return X_train, X_test, y_train, y_test
+
+        except Exception as e:
+            self.logger.error(f"[DATA SPLIT FAILED] {e}")
+            raise
     # Evaluate
     def _evaluate(self, y_test: pd.Series, preds) -> None:
         """
@@ -471,7 +542,7 @@ class ChurnModel:
         instance.logger.info(f"Pipeline loaded from {path}")
 
         return instance
-    
+
     # Run entire pipeline
     def run_pipeline(self, threshold: float = 0.4) -> dict:
         """
