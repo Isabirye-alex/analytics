@@ -1,190 +1,131 @@
 # Customer Analytics & Churn Intelligence Pipeline
 
-A production-grade, modular customer analytics system built on transactional retail data. Transforms raw sales records into operational intelligence including customer segmentation, revenue analysis, churn prediction, and an interactive business dashboard.
+A production-ready analytics system that turns raw retail transactions into actionable insights: data cleaning, customer segmentation, churn prediction, and an interactive dashboard.
 
----
+# Cell 1: Import libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.metrics import f1_score, recall_score, precision_score, confusion_matrix
 
-## What It Does
+## 1. Load Dataset
 
-| Capability | Description |
-|---|---|
-| **Churn Prediction** | GradientBoosting model — cross-validated F1 0.77, recall 0.81 |
-| **RFM Segmentation** | Recency, Frequency, Monetary scoring with labelled segments |
-| **Customer Lifetime Value** | AOV × Frequency × Lifespan per customer |
-| **Cohort Retention** | Month-over-month retention heatmap by acquisition cohort |
-| **Pareto Analysis** | 80/20 revenue concentration across the customer base |
-| **Business Intelligence** | Revenue by country, segment, top products, cancellation analysis |
-| **Streamlit Dashboard** | Six-page interactive dashboard for non-technical stakeholders |
+Download the dataset from Kaggle: [Online Retail Dataset](https://www.kaggle.com/code/ekajaya/analysis-dataset-sales-transaction-v-4a-csv)
 
----
+# Cell 2: Load CSV
+df = pd.read_csv("sales.csv", parse_dates=['Date'])
+df.head()
 
-## Architecture
+## 2. Data Overview
 
-```
-Raw CSV
-   │
-   ▼
-DataIngestor          — Load and validate file path
-   │
-   ▼
-DataCleaner           — Schema validation, null handling, type standardisation
-   │
-   ▼
-FeatureEngineering    — TotalRevenue, CancelledInvoice, YearMonth, CohortIndex
-   │
-   ▼
-CustomerBehavior      — RFM, CLV, Cohort, Pareto
-BusinessIntelligence  — Revenue by segment/country, top products, cancellations
-   │
-   ▼
-DatasetBuilder        — Merges RFM + CLV + churn label into ML-ready dataset
-   │
-   ▼
-ChurnModel            — Train, evaluate, cross-validate, predict, save
-   │
-   ▼
-dashboard.py          — Streamlit dashboard (7 pages)
-```
+- 536,350 transactions  
+- 4,738 unique customers  
+- Mostly UK customers, some from 38 other countries  
+- Columns: TransactionNo, Date, ProductNo, ProductName, Price, Quantity, CustomerNo, Country
 
-Each layer returns a dictionary of outputs. No layer mutates the output of another. A failure in one step raises immediately with a descriptive error — partial results are never passed downstream silently.
+# Quick stats
+df.info()
+df.describe()
+df['Country'].value_counts().head(10)
 
----
+## 3. Data Cleaning
 
-## Project Structure
+- Remove invalid `CustomerNo` and `ProductName` rows  
+- Handle cancellations (`Quantity < 0`)  
+- Remove duplicates and missing values
 
-```
-analytics/
-│
-├── ingest.py                          # DataIngestor
-├── clean.py                           # DataCleaner
-├── features.py                        # FeatureEngineering
-├── main.py                            # Entry point (analytics pipeline)
-├── dashboard.py                       # Streamlit dashboard
-├── sales.csv                          # Raw data
-│
-├── pipeline/
-│   ├── analytics/
-│   │   ├── customer_behavior.py       # RFM, CLV, Cohort, Pareto
-│   │   ├── business_intelligence.py   # BI analytics
-│   │   └── visualization_class.py     # Chart generation
-│   │
-│   └── ml/
-│       ├── dataset_builder.py         # Builds ML dataset with churn labels
-│       ├── model.py                   # ChurnModel class
-│       └── run_churn_model.py         # ML pipeline entry point
-│
-└── reusables/
-    └── reusable_functions.py          # Shared logger, schema validation
-```
+# Remove invalid CustomerNo and ProductName
+df_clean = df.dropna(subset=['CustomerNo', 'ProductName'])
 
----
+# Separate cancellations
+df_clean['Cancelled'] = df_clean['Quantity'] < 0
 
-## Churn Model
+# Optional: remove cancellations for certain analyses
+df_no_cancel = df_clean[~df_clean['Cancelled']]
 
-### Features
+df_clean.shape, df_no_cancel.shape
 
-| Feature | Description | Direction |
-|---|---|---|
-| Lifespan | Months since first purchase | Negative coefficient |
-| RevenueTrend | Revenue change over last 90 days | Negative = at risk |
-| AvgGapDays | Average days between purchases | Positive = at risk |
-| Frequency | Total number of purchases | Negative coefficient |
-| CLV | Customer lifetime value | Negative coefficient |
+## 4. Feature Engineering
 
-### Performance
+- TotalRevenue = Price × Quantity  
+- Recency, Frequency, Monetary (RFM) scores  
+- Cohort month, CLV approximation
 
-| Metric | Score |
-|---|---|
-| Cross-validated F1 | 0.77 |
-| Recall (churners) | 0.81 |
-| Precision (churners) | 0.72 |
-| Decision threshold | 0.4 |
-| Validation | 5-fold stratified cross-validation |
+# Total Revenue
+df_clean['TotalRevenue'] = df_clean['Price'] * df_clean['Quantity']
 
-### Churn Label Definition
+# Example: RFM features
+rfm = df_clean.groupby('CustomerNo').agg({
+    'Date': lambda x: (df_clean['Date'].max() - x.max()).days,  # Recency
+    'TransactionNo': 'count',  # Frequency
+    'TotalRevenue': 'sum'  # Monetary
+}).rename(columns={'Date':'Recency','TransactionNo':'Frequency','TotalRevenue':'Monetary'})
 
-A customer is labelled churned when their days since last purchase exceeds twice their personal average gap between purchases, with a minimum floor of 60 days. This approach respects each customer's established purchase pattern rather than applying a fixed threshold to all customers equally.
+rfm.head()
 
-```python
-ChurnThreshold = max(AvgGapDays × 2, 60)
-Churned = Recency > ChurnThreshold
-```
+## 5. Define Churn
 
----
+- Churn if days since last purchase > max(2 × AvgGapDays, 60)
 
-## Data Requirements
+# Calculate average gap days per customer
+df_clean = df_clean.sort_values(['CustomerNo', 'Date'])
+df_clean['PrevDate'] = df_clean.groupby('CustomerNo')['Date'].shift(1)
+df_clean['GapDays'] = (df_clean['Date'] - df_clean['PrevDate']).dt.days
+avg_gap = df_clean.groupby('CustomerNo')['GapDays'].mean().fillna(0)
+last_purchase = df_clean.groupby('CustomerNo')['Date'].max()
 
-| Column | Type | Description |
-|---|---|---|
-| `CustomerNo` | string | Unique customer identifier |
-| `TransactionNo` | string | Transaction identifier (prefix `C` = cancellation) |
-| `Date` | date | Transaction date (format: MM/DD/YYYY) |
-| `ProductNo` | string | Product identifier |
-| `ProductName` | string | Product name |
-| `Price` | float | Unit price |
-| `Quantity` | int | Units purchased |
-| `Country` | string | Customer country |
+churn_threshold = np.maximum(avg_gap*2, 60)
+churned = (pd.to_datetime('2011-12-31') - last_purchase).dt.days > churn_threshold
+rfm['Churned'] = churned.astype(int)
+rfm.head()
 
----
+## 6. Model Training
 
-## Setup
+- Gradient Boosting classifier  
+- Target: `Churned`  
+- Features: Recency, Frequency, Monetary, CLV, RevenueTrend, AvgGapDays
+
+# Example model
+features = ['Recency','Frequency','Monetary']  # extend with other engineered features
+X = rfm[features]
+y = rfm['Churned']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+model = GradientBoostingClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+y_pred = model.predict(X_test)
+print("F1:", f1_score(y_test, y_pred))
+print("Recall:", recall_score(y_test, y_pred))
+print("Precision:", precision_score(y_test, y_pred))
+
+## 7. Visualizations
+
+- RFM distribution  
+- Pareto chart (top 20% customers by revenue)  
+- Cohort retention heatmap
+
+# Example: Pareto chart
+top_customers = rfm.sort_values('Monetary', ascending=False)
+top20 = top_customers['Monetary'].cumsum() / top_customers['Monetary'].sum()
+plt.figure(figsize=(10,5))
+plt.plot(top20)
+plt.axhline(0.8, color='red', linestyle='--')
+plt.title("Pareto Analysis: Cumulative Revenue")
+plt.xlabel("Customers sorted by revenue")
+plt.ylabel("Cumulative revenue proportion")
+plt.show()
+
+## 8. Dashboard
+
+Use Streamlit for interactive visualization:
 
 ```bash
-# Clone the repository
-git clone https://github.com/Isabirye-alex/analytics.git
-cd analytics
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the analytics pipeline
-python main.py
-
-# Run the churn model
-python pipeline/ml/run_churn_model.py
-
-# Launch the dashboard
 streamlit run dashboard.py
-```
-
----
-
-## Dashboard Pages
-
-| Page | Audience Use Case |
-|---|---|
-| Overview | High-level KPIs — revenue, customers, churn rate |
-| Churn Intelligence | At-risk customers, model confidence, priority retention list |
-| Customer Segments | RFM segment sizes and revenue breakdown |
-| Revenue Analysis | Pareto curve, country revenue, top products |
-| Business Intelligence | Segment/country revenue, cancellations, top customers |
-| Retention Heatmap | Cohort-based month-over-month retention |
-| Customer Lifetime Value | CLV distribution, top customers with churn status |
-
----
-
-## Design Principles
-
-**Modularity** — Every class has a single responsibility. Swap a classifier, change a data source, or add an analytics step without touching unrelated code.
-
-**Pipeline injection** — Classifiers and pipelines are injected as arguments rather than hardcoded inside classes. The `ChurnModel` accepts any sklearn-compatible Pipeline.
-
-**Fail loudly** — Schema validation failures halt the pipeline immediately. Step-level failures in `BusinessIntelligence` are isolated and logged without stopping other steps.
-
-**No leakage** — `Recency`, `ChurnThreshold`, and derived identifiers are excluded from the feature matrix via `DROP_COLUMNS`. The churn label is never visible to the model as a feature.
-
-**Reproducibility** — `random_state=42` is set consistently. Stratified splits preserve class ratios. Cross-validation results are reported alongside single-split results.
-
----
-
-## Known Limitations
-
-- CLV model is simplified (AOV × Frequency × Lifespan). A probabilistic model such as BG/NBD + Gamma-Gamma would improve accuracy for customers with irregular purchase patterns.
-- The pipeline currently reads from local CSV. PostgreSQL ingestion is designed and partially implemented via `save_to_postgres` in `DataIngestor`.
-- The churn threshold is behavioural but static — it does not account for seasonality in purchase patterns.
-
----
 
 ## Author
 
-Built as a full-stack data science project combining data engineering, analytics modelling, machine learning, and software architecture principles.
+Full-stack data science project combining **data engineering, analytics, machine learning, and interactive dashboards**.
