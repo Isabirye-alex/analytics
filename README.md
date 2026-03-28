@@ -1,107 +1,190 @@
-# Customer Behavior Analytics Pipeline
-# Overview
+# Customer Analytics & Churn Intelligence Pipeline
 
-This project implements a modular, pipeline-driven customer analytics system for transactional datasets. It transforms raw sales data into actionable insights including:
+A production-grade, modular customer analytics system built on transactional retail data. Transforms raw sales records into operational intelligence including customer segmentation, revenue analysis, churn prediction, and an interactive business dashboard.
 
-RFM Segmentation (Recency, Frequency, Monetary)
+---
 
-Pareto Analysis (80/20 revenue rule)
+## What It Does
 
-Customer Lifetime Value (CLV)
+| Capability | Description |
+|---|---|
+| **Churn Prediction** | GradientBoosting model — cross-validated F1 0.77, recall 0.81 |
+| **RFM Segmentation** | Recency, Frequency, Monetary scoring with labelled segments |
+| **Customer Lifetime Value** | AOV × Frequency × Lifespan per customer |
+| **Cohort Retention** | Month-over-month retention heatmap by acquisition cohort |
+| **Pareto Analysis** | 80/20 revenue concentration across the customer base |
+| **Business Intelligence** | Revenue by country, segment, top products, cancellation analysis |
+| **Streamlit Dashboard** | Six-page interactive dashboard for non-technical stakeholders |
 
-Cohort Retention Analysis
+---
 
-The system is designed with scalability, reusability, and traceability in mind.
+## Architecture
 
-# Architecture
+```
+Raw CSV
+   │
+   ▼
+DataIngestor          — Load and validate file path
+   │
+   ▼
+DataCleaner           — Schema validation, null handling, type standardisation
+   │
+   ▼
+FeatureEngineering    — TotalRevenue, CancelledInvoice, YearMonth, CohortIndex
+   │
+   ▼
+CustomerBehavior      — RFM, CLV, Cohort, Pareto
+BusinessIntelligence  — Revenue by segment/country, top products, cancellations
+   │
+   ▼
+DatasetBuilder        — Merges RFM + CLV + churn label into ML-ready dataset
+   │
+   ▼
+ChurnModel            — Train, evaluate, cross-validate, predict, save
+   │
+   ▼
+dashboard.py          — Streamlit dashboard (7 pages)
+```
 
-The pipeline follows a structured data flow:
+Each layer returns a dictionary of outputs. No layer mutates the output of another. A failure in one step raises immediately with a descriptive error — partial results are never passed downstream silently.
 
-Data Ingestion → Data Cleaning → Feature Engineering → Customer Behavior Analytics → Visualization
-Core Components
-Layer	Responsibility
-DataInjestor	Loads raw data from CSV
-DataCleaner	Handles missing values, formatting, and quality checks
-FeatureEngineering	Creates derived features (cohorts, revenue, etc.)
-CustomerBehavior	Computes analytics (RFM, CLV, Pareto, Cohort)
-DataVisualization	Generates plots and insights
+---
 
-# Outputs
-1. RFM Table
+## Project Structure
 
-Customer segmentation based on:
+```
+analytics/
+│
+├── ingest.py                          # DataIngestor
+├── clean.py                           # DataCleaner
+├── features.py                        # FeatureEngineering
+├── main.py                            # Entry point (analytics pipeline)
+├── dashboard.py                       # Streamlit dashboard
+├── sales.csv                          # Raw data
+│
+├── pipeline/
+│   ├── analytics/
+│   │   ├── customer_behavior.py       # RFM, CLV, Cohort, Pareto
+│   │   ├── business_intelligence.py   # BI analytics
+│   │   └── visualization_class.py     # Chart generation
+│   │
+│   └── ml/
+│       ├── dataset_builder.py         # Builds ML dataset with churn labels
+│       ├── model.py                   # ChurnModel class
+│       └── run_churn_model.py         # ML pipeline entry point
+│
+└── reusables/
+    └── reusable_functions.py          # Shared logger, schema validation
+```
 
-Recency → Last purchase
+---
 
-Frequency → Number of transactions
+## Churn Model
 
-Monetary → Total spend
+### Features
 
-2. Pareto Analysis
+| Feature | Description | Direction |
+|---|---|---|
+| Lifespan | Months since first purchase | Negative coefficient |
+| RevenueTrend | Revenue change over last 90 days | Negative = at risk |
+| AvgGapDays | Average days between purchases | Positive = at risk |
+| Frequency | Total number of purchases | Negative coefficient |
+| CLV | Customer lifetime value | Negative coefficient |
 
-Identifies top revenue contributors
+### Performance
 
-Validates 80/20 rule
+| Metric | Score |
+|---|---|
+| Cross-validated F1 | 0.77 |
+| Recall (churners) | 0.81 |
+| Precision (churners) | 0.72 |
+| Decision threshold | 0.4 |
+| Validation | 5-fold stratified cross-validation |
 
-3. Customer Lifetime Value (CLV)
+### Churn Label Definition
 
-# Formula:
+A customer is labelled churned when their days since last purchase exceeds twice their personal average gap between purchases, with a minimum floor of 60 days. This approach respects each customer's established purchase pattern rather than applying a fixed threshold to all customers equally.
 
-CLV = AOV × Frequency × Lifespan
-4. Cohort Retention Matrix
+```python
+ChurnThreshold = max(AvgGapDays × 2, 60)
+Churned = Recency > ChurnThreshold
+```
 
-Tracks customer retention over time
+---
 
-Helps identify churn trends
+## Data Requirements
 
-# Data Requirements
+| Column | Type | Description |
+|---|---|---|
+| `CustomerNo` | string | Unique customer identifier |
+| `TransactionNo` | string | Transaction identifier (prefix `C` = cancellation) |
+| `Date` | date | Transaction date (format: MM/DD/YYYY) |
+| `ProductNo` | string | Product identifier |
+| `ProductName` | string | Product name |
+| `Price` | float | Unit price |
+| `Quantity` | int | Units purchased |
+| `Country` | string | Customer country |
 
-The dataset must contain:
+---
 
-Column	Description
-CustomerNo	Unique customer ID
-TransactionNo	Transaction identifier
-Date	Transaction date
-TotalRevenue	Revenue per transaction
-CancelledInvoice	Boolean flag
-CohortMonth	First purchase month
-CohortIndex	Months since first purchase
-# Design Principles
+## Setup
 
-Modularity → Each step is isolated and reusable
+```bash
+# Clone the repository
+git clone https://github.com/Isabirye-alex/analytics.git
+cd analytics
 
-Pipeline Execution → Ordered step execution
+# Install dependencies
+pip install -r requirements.txt
 
-Schema Validation → Prevents invalid inputs
+# Run the analytics pipeline
+python main.py
 
-Logging → Tracks execution flow
+# Run the churn model
+python pipeline/ml/run_churn_model.py
 
-Extensibility → Easy to add new analytics steps
+# Launch the dashboard
+streamlit run dashboard.py
+```
 
-# Limitations
+---
 
-CLV model is simplified (not probabilistic)
+## Dashboard Pages
 
-No predictive modeling (yet)
+| Page | Audience Use Case |
+|---|---|
+| Overview | High-level KPIs — revenue, customers, churn rate |
+| Churn Intelligence | At-risk customers, model confidence, priority retention list |
+| Customer Segments | RFM segment sizes and revenue breakdown |
+| Revenue Analysis | Pareto curve, country revenue, top products |
+| Business Intelligence | Segment/country revenue, cancellations, top customers |
+| Retention Heatmap | Cohort-based month-over-month retention |
+| Customer Lifetime Value | CLV distribution, top customers with churn status |
 
-Assumes clean transactional data
+---
 
-# Future Improvements
+## Design Principles
 
-Churn prediction model (classification)
+**Modularity** — Every class has a single responsibility. Swap a classifier, change a data source, or add an analytics step without touching unrelated code.
 
-Advanced CLV models (BG/NBD, Gamma-Gamma)
+**Pipeline injection** — Classifiers and pipelines are injected as arguments rather than hardcoded inside classes. The `ChurnModel` accepts any sklearn-compatible Pipeline.
 
-Real-time data pipeline integration
+**Fail loudly** — Schema validation failures halt the pipeline immediately. Step-level failures in `BusinessIntelligence` are isolated and logged without stopping other steps.
 
-API deployment for analytics serving
+**No leakage** — `Recency`, `ChurnThreshold`, and derived identifiers are excluded from the feature matrix via `DROP_COLUMNS`. The churn label is never visible to the model as a feature.
 
-# Author
+**Reproducibility** — `random_state=42` is set consistently. Stratified splits preserve class ratios. Cross-validation results are reported alongside single-split results.
 
-Built as part of a data science and software engineering pipeline project, combining:
+---
 
-Data Engineering principles
+## Known Limitations
 
-Analytics modeling
+- CLV model is simplified (AOV × Frequency × Lifespan). A probabilistic model such as BG/NBD + Gamma-Gamma would improve accuracy for customers with irregular purchase patterns.
+- The pipeline currently reads from local CSV. PostgreSQL ingestion is designed and partially implemented via `save_to_postgres` in `DataIngestor`.
+- The churn threshold is behavioural but static — it does not account for seasonality in purchase patterns.
 
-Clean architecture design
+---
+
+## Author
+
+Built as a full-stack data science project combining data engineering, analytics modelling, machine learning, and software architecture principles.
